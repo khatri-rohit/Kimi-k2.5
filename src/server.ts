@@ -1,10 +1,13 @@
 import dotenv from 'dotenv';
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
+import JSON5 from 'json5';
 
 dotenv.config();
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.use(express.text({ limit: '1mb', type: ['application/json', 'application/*+json'] }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(tolerantJsonBodyParser);
 
 const nvidiaApiUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const defaultModel = process.env.NVIDIA_MODEL ?? 'moonshotai/kimi-k2.5';
@@ -105,6 +108,43 @@ function safeJsonParse(value: string): unknown | null {
     return JSON.parse(value);
   } catch {
     return null;
+  }
+}
+
+function tolerantJsonBodyParser(req: Request, res: Response, next: NextFunction): void {
+  const contentType = req.headers['content-type'] ?? '';
+  if (typeof contentType !== 'string' || !contentType.toLowerCase().includes('application/json')) {
+    next();
+    return;
+  }
+
+  const rawBody = req.body;
+  if (typeof rawBody !== 'string') {
+    next();
+    return;
+  }
+
+  if (rawBody.trim().length === 0) {
+    req.body = {};
+    next();
+    return;
+  }
+
+  const strictJson = safeJsonParse(rawBody);
+  if (strictJson !== null) {
+    req.body = strictJson;
+    next();
+    return;
+  }
+
+  try {
+    req.body = JSON5.parse(rawBody);
+    next();
+  } catch {
+    res.status(400).json({
+      error: 'Invalid JSON payload.',
+      details: 'Payload could not be parsed as JSON.'
+    });
   }
 }
 
