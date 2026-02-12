@@ -38,7 +38,10 @@ Request body:
   "temperature": 0.7,
   "top_p": 1,
   "max_tokens": 1024,
-  "stream": false
+  "stream": false,
+  "chat_template_kwargs": {
+    "thinking": true
+  }
 }
 ```
 
@@ -67,4 +70,5 @@ curl --request POST \
 ## Health check
 
 - `GET /health` -> `{ "ok": true }`
+
 # Kimi-k2.5
